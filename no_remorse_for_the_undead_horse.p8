@@ -15,7 +15,8 @@ function _init()
 
 	player={
 		s=1
-		,flips=false
+		,flip=false
+		,dir="down"
 		,x=screenwidth/2
 		,y=screenheight/2
 		,w=8
@@ -151,50 +152,42 @@ function playercontrol(self)
 end
 
 function playerdraw(self)
-	spr(self.s,self.x,self.y,1,1,self.flip_s)
+	spr(self.s,self.x,self.y,1,1,self.flip)
 end
 
 function moveleft(self)
 	self.x-=1
-	self.flip_s=true
+	self.flip=true
+	self.dir="left"
 	if self.x%8<4 then self.s=3 else self.s=4 end
 end
 
 function moveright(self)
 	self.x+=1
-	self.flip_s=false
+	self.flip=false
+	self.dir="right"
 	if self.x%8<4 then self.s=3 else self.s=4 end
 end
 
 function moveup(self)
 	self.y-=1
 	self.s=2
-	self.flip_s=false
-	if self.y%8<4 then self.flip_s=true end
+	self.flip=false
+	self.dir="up"
+	if self.y%8<4 then self.flip=true end
 end
 
 function movedown(self)
 	self.y+=1
 	self.s=1
-	self.flip_s=false
+	self.flip=false
+	self.dir="down"
 	if self.y%8<4 then self.s=5 end
 end
 
 function usepole(self,pl)
-	local flip=false
-	local x=true
-	--direction of char
-	if (pl.s==1 or pl.s==5) then
-		x=false
-	elseif (pl.s==2) then
-		flip=true
-		x=false
-	elseif (pl.flip_s) then
-		flip=true
-	end
-
-	if x then
-		if flip then
+	if pl.dir=="left" or pl.dir=="right" then
+		if pl.dir=="left" then
 			self.box.x1 = pl.x
 			self.box.x0 = self.box.x1 - 30
 		else
@@ -206,7 +199,7 @@ function usepole(self,pl)
 	else
 		self.box.x0 = pl.x+4
 		self.box.x1 = self.box.x0+1
-		if flip then
+		if pl.dir=="up" then
 			self.box.y1 = pl.y
 			self.box.y0 = self.box.y1 - 30
 		else
