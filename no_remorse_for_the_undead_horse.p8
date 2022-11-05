@@ -9,8 +9,9 @@ function _init()
 	cls()
 	scene=0
 	score=0
-	screenwidth = 127
-	screenheight = 127
+	hiscore=0
+	screenwidth=127
+	screenheight=127
 	timer=1800
 
 	player={
@@ -28,12 +29,10 @@ function _init()
 	pole={
 		active=false
 		,t=0
-		,box={
-			x0=player.x
-			,y0=player.y
-			,x1=player.x
-			,y1=player.y
-		}
+		,x=player.x
+		,y=player.y
+		,w=0
+		,h=0
 		,upd=usepole
 		,draw=poledraw
 	}
@@ -41,6 +40,10 @@ function _init()
 	cat={
 	}
 
+	enemies={}
+
+	palt(0,false)
+	palt(5,true)
 end
 
 function _update()
@@ -87,6 +90,34 @@ function gameupdate()
 	if pole.active then
 		pole:upd(player)
 	end
+
+	if timer%30==0 then
+		spawn_enemy()
+	end
+
+	for e in all(enemies) do
+		e.x+=e.dx
+		e.y+=e.dy
+		e.t+=1
+
+		if e.t%8<3 then e.s=7 else e.s=6 end
+
+		if e.t==128 then
+			del(enemies,e)
+			break
+		end
+
+		if collide(pole,e) and pole.active then
+			sfx(1)
+			del(enemies,e)
+			score +=1
+		end
+	end
+
+	if timer==0 then
+		hiscore=max(hiscore,score)
+		scene=0
+	end
 end
 
 -- draw fxns
@@ -95,11 +126,13 @@ function titledraw()
 	local titletxt2="for an undead horse!"
 	local starttxt="press 🅾️/z to start"
 	local helptxt="press ❎/x for instructions"
+	local scoretxt="high score: "..hiscore
 
 	rectfill(0,0,screenwidth, screenheight, 5)
 
 	print(titletxt, hcenter(titletxt), screenheight/4, 11)
 	print(titletxt2, hcenter(titletxt2), screenheight/4+8, 11)
+	print(scoretxt, hcenter(scoretxt), 3*screenheight/8, 7)
 	print(starttxt, hcenter(starttxt), (screenheight/4)+(screenheight/2),7)
 	print(helptxt, hcenter(helptxt), (screenheight/4)+(screenheight/2)+8,7)
 end
@@ -133,9 +166,38 @@ function gamedraw()
 
 	player:draw()
 	pole:draw()
+
+	for e in all(enemies) do
+		spr(e.s
+			,e.x
+			,e.y
+			,1
+			,1
+			,e.dx>0 and true
+		)
+	end
 end
 
 --util_fxns
+function spawn_enemy()
+	local right=true
+	local dx = -1
+	local dy = -1
+	if rnd(1)<0.5 then dx=1 end
+	if rnd(1)<0.5 then dy=1 end
+	if rnd(1)<0.5 then right=false end
+	add(enemies, {
+		s=6
+		,x=(right and (dx>0 and 0 or 119) or flr(rnd(120)))
+		,y=(right and flr(rnd(120)) or (dy>0 and 0 or 119))
+		,w=8
+		,h=8
+		,dx=(right and dx or 0)
+		,dy=(right and 0 or dy)
+		,t=0
+	})
+end
+
 function playercontrol(self)
 	if btn(0) then moveleft(self)
 	elseif btn(1) then moveright(self)
@@ -146,9 +208,8 @@ function playercontrol(self)
 	if btn(5) then usecat(self) end
 
 	-- check if the player is still onscreen
-	self.x = mid(0, self.x, screenwidth - self.w)
-	self.y = mid(0, self.y, screenheight - self.h)
-
+	self.x=mid(0, self.x, screenwidth - self.w)
+	self.y=mid(0, self.y, screenheight - self.h)
 end
 
 function playerdraw(self)
@@ -159,14 +220,14 @@ function moveleft(self)
 	self.x-=1
 	self.flip=true
 	self.dir="left"
-	if self.x%8<4 then self.s=3 else self.s=4 end
+	if self.x%8<3 then self.s=3 else self.s=4 end
 end
 
 function moveright(self)
 	self.x+=1
 	self.flip=false
 	self.dir="right"
-	if self.x%8<4 then self.s=3 else self.s=4 end
+	if self.x%8<3 then self.s=3 else self.s=4 end
 end
 
 function moveup(self)
@@ -174,7 +235,7 @@ function moveup(self)
 	self.s=2
 	self.flip=false
 	self.dir="up"
-	if self.y%8<4 then self.flip=true end
+	if self.y%8<3 then self.flip=true end
 end
 
 function movedown(self)
@@ -182,29 +243,27 @@ function movedown(self)
 	self.s=1
 	self.flip=false
 	self.dir="down"
-	if self.y%8<4 then self.s=5 end
+	if self.y%8<3 then self.s=5 end
 end
 
 function usepole(self,pl)
 	if pl.dir=="left" or pl.dir=="right" then
+		self.w = 30
+		self.h = 1
+		self.y = pl.y+5
 		if pl.dir=="left" then
-			self.box.x1 = pl.x
-			self.box.x0 = self.box.x1 - 30
+			self.x = pl.x - self.w
 		else
-			self.box.x0 = pl.x + 8
-			self.box.x1 = self.box.x0 + 30
+			self.x = pl.x + 8
 		end
-		self.box.y0 = pl.y+5
-		self.box.y1 = self.box.y0+1
 	else
-		self.box.x0 = pl.x+4
-		self.box.x1 = self.box.x0+1
+		self.w = 1
+		self.h=30
+		self.x = pl.x+4
 		if pl.dir=="up" then
-			self.box.y1 = pl.y
-			self.box.y0 = self.box.y1 - 30
+			self.y = pl.y - self.h
 		else
-			self.box.y0 = pl.y + 8
-			self.box.y1 = self.box.y0 + 30
+			self.y = pl.y + 8
 		end
 	end
 
@@ -214,22 +273,23 @@ function usepole(self,pl)
 	if self.t==15 then
 		self.t=0
 		self.active=false
-		self.box={
-			x0=0
-			,x1=0
-			,y0=0
-			,y1=0
-		}
+		self.x=0
+		self.y=0
+		self.w=0
+		self.h=0
 	end
 
 end
 
 function poledraw(self)
-	rectfill(self.box.x0, self.box.y0, self.box.x1, self.box.y1, 2)
+	rectfill(self.x, self.y, self.x+self.w, self.y+self.h, 2)
 end
 
 function usecat(self)
 
+end
+
+function catdraw(self)
 end
 
 function hcenter(s)
@@ -251,13 +311,14 @@ function collide(a,b)
 end
 
 __gfx__
-00000000554444555544445555444455554444555544445500000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000054f444455444444554444f5554444f5554f4444500000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700540f0f4554444445544f0f55544f0f55540f0f4500000000000000000000000000000000000000000000000000000000000000000000000000000000
-0007700055fffe55554444555544ff555544ff5555fffe5500000000000000000000000000000000000000000000000000000000000000000000000000000000
-000770005eeeeee55eeeeee55eeeee55feeeeeef5eeeeee500000000000000000000000000000000000000000000000000000000000000000000000000000000
-007007005feeee5f5f5eee5f5f5eee55555eee55f5eeeef500000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000055ee5e55555e5e55555ff55555f55f5555e5ee5500000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000005577555555575555555ee5555e5555e55555775500000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000554444555544445555444455554444555544445553055555530555550000000000000000000000000000000000000000000000000000000000000000
+0000000054f444455444444554444f5554444f5554f4444538305555383055550000000000000000000000000000000000000000000000000000000000000000
+00700700540f0f4554444445544f0f55544f0f55540f0f4533330555333305550000000000000000000000000000000000000000000000000000000000000000
+0007700055fffe55554444555544ff555544ff5555fffe5555333335553333350000000000000000000000000000000000000000000000000000000000000000
+000770005eeeeee55eeeeee55eeeee55feeeeeef5eeeeee555333350553333500000000000000000000000000000000000000000000000000000000000000000
+007007005feeee5f5f5eee5f5f5eee55555eee55f5eeeef555333350553333500000000000000000000000000000000000000000000000000000000000000000
+0000000055ee5e55555e5e55555ff55555f55f5555e5ee5555355355535555350000000000000000000000000000000000000000000000000000000000000000
+000000005577555555575555555ee5555e5555e55555775555055055055555050000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 000100000000028450234501e4501a45015450124500e450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000400000000033150361503215036150331503415038150301502b15027150211501c150131500d1500400001000000000000000000000000000000000000000000000000000000000000000000000000000000
