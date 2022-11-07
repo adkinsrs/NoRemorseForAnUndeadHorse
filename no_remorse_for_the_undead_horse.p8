@@ -38,6 +38,30 @@ function _init()
 	}
 
 	cat={
+		s=9
+		,active=false
+		,flipx=false
+		,flipy=false
+		,t=0
+		,x=player.x
+		,y=player.y
+		,w=8
+		,h=8
+		,dx=0
+		,dy=0
+		,upd=usecat
+		,draw=catdraw
+	}
+	bomb={
+		active=false
+		,t=0
+		,r=1
+		,x=cat.x
+		,y=cat.y
+		,w=8
+		,h=8
+		,upd=explode
+		,draw=bombdraw
 	}
 
 	enemies={}
@@ -58,7 +82,7 @@ function _update()
 end
 
 function _draw()
-	cls()
+	cls(5)
 	if scene==0 then
 		titledraw()
 	elseif scene==1 then
@@ -84,13 +108,12 @@ function helpupdate()
 end
 
 function gameupdate()
-	--score+=1
 	timer-=1
 	--colon implies "self" passed as arg
 	player:upd()
-	if pole.active then
-		pole:upd(player)
-	end
+	if pole.active then pole:upd(player) end
+	if cat.active then cat:upd(player) end
+	if bomb.active then bomb:upd() end
 
 	if timer%30==0 then
 		spawn_enemy()
@@ -116,7 +139,10 @@ function gameupdate()
 			break
 		end
 
-		if collide(pole,e) and pole.active then
+		if e.alive
+		and ((collide(pole,e) and pole.active)
+		or (collide(cat,e) and cat.active)
+		or (collide(bomb,e) and bomb.active)) then
 			sfx(1)
 			-- leave blood pile
 			e.alive=false
@@ -139,8 +165,6 @@ function titledraw()
 	local helptxt="press ❎/x for instructions"
 	local scoretxt="high score: "..hiscore
 
-	rectfill(0,0,screenwidth, screenheight, 5)
-
 	print(titletxt, hcenter(titletxt), screenheight/4, 11)
 	print(titletxt2, hcenter(titletxt2), screenheight/4+8, 11)
 	print(scoretxt, hcenter(scoretxt), 3*screenheight/8, 7)
@@ -158,8 +182,6 @@ function helpdraw()
 	local helpdir="⬆️⬇️⬅️➡️ move player    "
 	local returntext="press ❎/x to return"
 
-	rectfill(0,0,screenwidth, screenheight, 5)
-
 	print(help, hcenter(help), screenheight/8, 7)
 	print(help2, hcenter(help2), (screenheight/8)+8, 7)
 	print(helpz, hcenter(helpz), (3*screenheight/8)-8,7)
@@ -171,12 +193,13 @@ function helpdraw()
 end
 
 function gamedraw()
-	rectfill(0,0,screenwidth, screenheight, 5)
 	print("score " .. score, 5, 2, 7)
 	print("timer ".. ceil(timer/30), 90, 2, 7)
 
 	player:draw()
-	pole:draw()
+	if pole.active then pole:draw() end
+	if cat.active then cat:draw() end
+	if bomb.active then bomb:draw() end
 
 	for e in all(enemies) do
 		spr(e.s
@@ -191,21 +214,21 @@ end
 
 --util_fxns
 function spawn_enemy()
-	local right=true
-	local dx = -1
-	local dy = -1
+	local lr=true
+	local dx=-1
+	local dy=-1
 	if rnd(1)<0.5 then dx=1 end
 	if rnd(1)<0.5 then dy=1 end
-	if rnd(1)<0.5 then right=false end
+	if rnd(1)<0.5 then lr=false end
 	add(enemies, {
 		s=6
 		,alive=true
-		,x=(right and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(right and flr(rnd(120)) or (dy>0 and 0 or 119))
+		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
+		,y=(lr and flr(rnd(120)) or (dy>0 and 0 or 119))
 		,w=8
 		,h=8
-		,dx=(right and dx or 0)
-		,dy=(right and 0 or dy)
+		,dx=(lr and dx or 0)
+		,dy=(lr and 0 or dy)
 		,t=0
 	})
 end
@@ -217,7 +240,7 @@ function playercontrol(self)
 	elseif btn(3) then movedown(self) end
 
 	if btn(4) then pole.active=true end
-	if btn(5) then usecat(self) end
+	if btn(5) then cat.active=true end
 
 	-- check if the player is still onscreen
 	self.x=mid(0, self.x, screenwidth - self.w)
@@ -280,8 +303,9 @@ function usepole(self,pl)
 	end
 
 	if self.t==0 then sfx(0) end
-
 	self.t+=1
+
+	-- Stop using pole
 	if self.t==15 then
 		self.t=0
 		self.active=false
@@ -290,18 +314,104 @@ function usepole(self,pl)
 		self.w=0
 		self.h=0
 	end
-
 end
 
 function poledraw(self)
 	rectfill(self.x, self.y, self.x+self.w, self.y+self.h, 2)
 end
 
-function usecat(self)
+function usecat(self,pl)
+	self.flipx=false
+	self.flipy=false
 
+	-- explode and despawn
+	if self.t>39 then
+		self.dx=0
+		self.dy=0
+		self.t=0
+		self.active=false
+		bomb.x=self.x
+		bomb.y=self.y
+		bomb.active=true
+		return
+	end
+
+	-- catbomb instead of bag
+	if self.t>3 then
+		self.t+=1
+		self.s=9
+		self.x+=self.dx
+		self.y+=self.dy
+		return
+	end
+
+	--init sprite position
+	self.dx=0
+	self.dy=0
+	local bag_s=10
+	if pl.dir=="left" or pl.dir=="right" then
+		self.y = pl.y+1
+		if pl.dir=="left" then
+			self.x = pl.x - self.w
+			self.flipx=true
+			self.dx=-1
+		else
+			self.x = pl.x + self.w
+			self.dx=1
+		end
+	else
+		bag_s=11
+		self.x = pl.x+1
+		if pl.dir=="up" then
+			self.y = pl.y - self.h
+			self.flipy=true
+			self.dy=-1
+		else
+			self.y = pl.y + self.h
+			self.dy=1
+		end
+	end
+
+	if self.t==0 then sfx(3) end
+	self.t+=1
+
+	if self.t<3 then self.s=bag_s end
 end
 
 function catdraw(self)
+	spr(self.s, self.x, self.y, 1, 1, self.flipx, self.flipy)
+end
+
+function explode(self)
+	self.r=min(16,self.r+1)
+	self.w=max(self.r,cat.w)
+	self.h=max(self.r,cat.h)
+	self.t+=1
+	if self.t==20 then
+		self.active=false
+		self.t=0
+		self.r=1
+		self.x=cat.x
+		self.y=cat.y
+		self.w=8
+		self.h=8
+	end
+end
+
+function bombdraw(self)
+	local c=0
+	circfill(self.x+4,self.y+4,self.r,c)
+	if self.t%6<2 then
+		fillp(0b1101101101101101.1)
+		c=10
+	elseif self.t%6<4 then
+		fillp(0b1011011011011011.1)
+		c=9
+	else
+		fillp(0b0110110110110110.1)
+		c=8
+	end
+	circfill(self.x+4,self.y+4,self.r,c)
 end
 
 function hcenter(s)
@@ -323,15 +433,16 @@ function collide(a,b)
 end
 
 __gfx__
-00000000554444555544445555444455554444555544445553055555530555555555555500000000000000000000000000000000000000000000000000000000
-0000000054f444455444444554444f5554444f5554f4444538305555383055555555555500000000000000000000000000000000000000000000000000000000
-00700700540f0f4554444445544f0f55544f0f55540f0f4533330555333305555555555500000000000000000000000000000000000000000000000000000000
-0007700055fffe55554444555544ff555544ff5555fffe5555333335553333355555555500000000000000000000000000000000000000000000000000000000
-000770005eeeeee55eeeeee55eeeee55feeeeeef5eeeeee555333350553333505338535500000000000000000000000000000000000000000000000000000000
-007007005feeee5f5f5eee5f5f5eee55555eee55f5eeeef555333350553333508383838300000000000000000000000000000000000000000000000000000000
-0000000055ee5e55555e5e55555ff55555f55f5555e5ee5555355355535555358833383800000000000000000000000000000000000000000000000000000000
-000000005577555555575555555ee5555e5555e55555775555055055055555055383855800000000000000000000000000000000000000000000000000000000
+00000000554444555544445555444455554444555544445553055555530555555555555556555565555555555444444400000000000000000000000000000000
+0000000054f444455444444554444f5554444f5554f444453830555538305555555555555e6556e5444444445444444400000000000000000000000000000000
+00700700540f0f4554444445544f0f55544f0f55540f0f453333055533330555555555555e6666e5444444455444444400000000000000000000000000000000
+0007700055fffe55554444555544ff555544ff5555fffe5555333335553333355555555566066066444444445444444400000000000000000000000000000000
+000770005eeeeee55eeeeee55eeeee55feeeeeef5eeeeee555333350553333505338535566666666444444455444444400000000000000000000000000000000
+007007005feeee5f5f5eee5f5f5eee55555eee55f5eeeef555333350553333508383838366066066444444445444444400000000000000000000000000000000
+0000000055ee5e55555e5e55555ff55555f55f5555e5ee5555355355535555358833383856600665444444455444444400000000000000000000000000000000
+000000005577555555575555555ee5555e5555e55555775555055055055555055383855855666655444444445454545400000000000000000000000000000000
 __sfx__
 000100000000028450234501e4501a45015450124500e450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000500000000033150361503215036150331503415038150301502b15027150211501c150131500d1500400001000000000000000000000000000000000000000000000000000000000000000000000000000000
 14140000145501455018550185501c5501c5501e5501e550235502355023550235502755027550275501800000000000000000000000000000000000000000000000000000000000000000000000000000000000
+010200002215024150261502715028150281502815026150251502415022150201501e1501c1501b1501b15000000000000000000000000000000000000000000000000000000000000000000000000000000000
