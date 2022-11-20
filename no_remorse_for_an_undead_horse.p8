@@ -13,6 +13,8 @@ function _init()
 	screenwidth=127
 	screenheight=127
 	timer=1800
+	enemy_m=1
+	pts_m=1
 
 	player={
 		s=1
@@ -22,7 +24,11 @@ function _init()
 		,y=screenheight/2
 		,w=8
 		,h=8
-		,upd=playercontrol
+		,pts_up=false
+		,pts_up_t=0
+		,enemy_up=false
+		,enemy_up_t=0
+		,upd=playerupdate
 		,draw=playerdraw
 	}
 
@@ -64,10 +70,10 @@ function _init()
 		,draw=bombdraw
 	}
 
+	pwrups={}
 	enemies={}
 
 	sfx(2)
-	--palt(0,true)
 end
 
 function _update()
@@ -77,6 +83,8 @@ function _update()
 		gameupdate()
 	elseif scene==2 then
 		helpupdate()
+	elseif scene==3 then
+		enemyhelpupdate()
 	end
 end
 
@@ -87,6 +95,8 @@ function _draw()
 		gamedraw()
 	elseif scene==2 then
 		helpdraw()
+	elseif scene==3 then
+		enemyhelpdraw()
 	end
 end
 
@@ -100,7 +110,16 @@ function titleupdate()
 end
 
 function helpupdate()
+	if btnp(4) then
+		scene=0
+	end
 	if btnp(5) then
+		scene=3
+	end
+end
+
+function enemyhelpupdate()
+	if btnp(4) then
 		scene=0
 	end
 end
@@ -113,8 +132,16 @@ function gameupdate()
 	if bomb.active then bomb:upd() end
 	if pole.active then pole:upd(player) end
 
-	if timer%30==0 then
+	if timer%90==0 then
+		spawn_powerup()
+	end
+
+	if timer%(30/enemy_m)==0 then
 		spawn_enemy(timer/30)
+	end
+
+	for p in all(pwrups) do
+		p:upd()
 	end
 
 	for e in all(enemies) do
@@ -130,11 +157,11 @@ end
 
 -- draw fxns
 function titledraw()
-	cls(5)
+	cls(0)
 	local titletxt="no remorse"
 	local titletxt2="for an undead horse!"
-	local starttxt="press 🅾️/z to start"
-	local helptxt="press ❎/x for instructions"
+	local starttxt="press z to start"
+	local helptxt="press x for instructions"
 	local scoretxt="high score: "..hiscore
 
 	print(titletxt, hcenter(titletxt), screenheight/4, 11)
@@ -145,39 +172,80 @@ function titledraw()
 end
 
 function helpdraw()
-	cls(5)
-	local help="beat as many dead horses"
+	cls(0)
+	local help="beat as many (un)dead horses"
 	local help2="as you can in a minute."
-	local helpz="🅾️/z"
-	local helpz2="touch it with a 10-foot pole"
-	local helpx="❎/x"
-	local helpx2="let the cat out of the bag"
-	local helpdir="⬆️⬇️⬅️➡️ move player    "
-	local returntext="press ❎/x to return"
+	local helpz="z"
+	local helpz2="touch it with"
+	local helpz3="a 10-foot pole"
+	local helpx="x"
+	local helpx2="let the cat"
+	local helpx3="out of the bag"
+	local helpdir="wasd"
+	local helpdir2="move player"
+	local helpscorem="points x2"
+	local helpenemym="spawn x2"
+	local returntext="z - back"
+	local moretext="x - enemy info"
 
-	print(help, hcenter(help), screenheight/8, 7)
-	print(help2, hcenter(help2), (screenheight/8)+8, 7)
-	print(helpz, hcenter(helpz), (3*screenheight/8)-8,7)
-	print(helpz2, hcenter(helpz2), (3*screenheight/8),7)
-	print(helpx, hcenter(helpx), screenheight/2,7)
-	print(helpx2, hcenter(helpx2), (screenheight/2)+8,7)
-	print(helpdir, hcenter(helpdir), (3*screenheight/4)-8,7)
-	print(returntext, hcenter(returntext), (7*screenheight/8),9)
+	print(help, hcenter(help), screenheight/16, 7)
+	print(help2, hcenter(help2), (screenheight/16)+8, 7)
+	print(helpz, 32, screenheight/4,7)
+	print(helpz2, 64, screenheight/4,7)
+	print(helpz3, 64, (screenheight/4)+8,7)
+	print(helpx, 32, (7*screenheight/16),7)
+	print(helpx2, 64, (7*screenheight/16),7)
+	print(helpx3, 64, (7*screenheight/16)+8,7)
+	print(helpdir, 32, (5*screenheight/8),7)
+	print(helpdir2, 64, (5*screenheight/8),7)
+	spr(32,8,(3*screenheight/4))
+	print(helpscorem, 20, (3*screenheight/4),7)
+	spr(33,64,(3*screenheight/4))
+	print(helpenemym, 76, (3*screenheight/4),7)
+	print(returntext, 5, screenheight-8,9)
+	print(moretext, 70, screenheight-8,9)
+end
+
+function enemyhelpdraw()
+	cls(0)
+	local title="enemies"
+	local enemy1="zombie horse"
+	local enemy2="eligor"
+	local enemy3="armored horse"
+	local returntext="z - back"
+
+	print(title, hcenter(title), screenheight/16, 7)
+	spr(6,32, screenheight/4)
+	print(enemy1, 64, screenheight/4,7)
+	spr(12,32, screenheight/2, 2, 2)
+	print(enemy2, 64, screenheight/2,7)
+	spr(16,32, (3*screenheight/4))
+	print(enemy3, 64, (3*screenheight/4),7)
+	print(returntext, 5, screenheight-8,9)
 end
 
 function gamedraw()
 	cls(3)
-	print("score " .. score, 5, 2, 7)
-	print("timer ".. ceil(timer/30), 90, 2, 7)
+	map(0,1,0,8,16,15)
 
-	map(0,0,0,0,16,16)
+	rectfill(0,0,screenwidth,8,0)
+	print("score " .. score, 5, 1, 7)
+	print("timer ".. ceil(timer/30), 90, 1, 7)
+	if player.pts_up then
+		spr(32,64,0)
+	end
+	if player.enemy_up then
+		spr(33,72,0)
+	end
 
 	player:draw()
+	if pole.active then pole:draw() end
 	if cat.active then cat:draw() end
 	if bomb.active then bomb:draw() end
-	--add after bomb to avoid fillp effects
-	if pole.active then pole:draw() end
 
+	for p in all(pwrups) do
+		p:draw()
+	end
 
 	for e in all(enemies) do
 		e:draw()
@@ -185,6 +253,48 @@ function gamedraw()
 end
 
 --util_fxns
+function spawn_powerup()
+	local types = {"pts_up", "enemy_up"}
+	local type=rnd(types)
+	local sp=type=="pts_up" and 32 or 33
+	add(pwrups, {
+		t=0
+		,type=type
+		,sp=sp
+		,x=flr(rnd(120))
+		,y=flr(rnd(112))+8
+		,w=8
+		,h=8
+		,upd=pwrupupdate
+		,draw=pwrupdraw
+	})
+end
+
+function pwrupupdate(self)
+	if self.t==150 then
+		del(pwrups,self)
+		return
+	end
+	self.t+=1
+
+	if collide(player,self) then
+		if self.type=="pts_up" then
+			player.pts_up = true
+			pts_m = 2
+			sfx(7)
+		elseif self.type=="enemy_up" then
+			player.enemy_up = true
+			enemy_m = 2
+			sfx(8)
+		end
+		del(pwrups,self)
+	end
+end
+
+function pwrupdraw(self)
+	spr(self.sp,self.x, self.y)
+end
+
 function spawn_enemy(timer)
 	local lr=true
 	local dx=-1
@@ -193,18 +303,12 @@ function spawn_enemy(timer)
 	if rnd(1)<0.5 then dy=1 end
 	if rnd(1)<0.5 then lr=false end
 
-	local horsetype = {1} --horse
-	if timer<51 then add(horsetype, 2) end	--eligor
-	if timer<41 then add(horsetype, 3) end	--armor
+	local horsefunc = {addhorse} --horse
+	if timer<51 then add(horsefunc, addeligor) end	--eligor
+	if timer<41 then add(horsefunc, addarmor) end	--armor
 
-	enemy = rnd(horsetype)
-	if enemy == 1 then
-		add(enemies, addhorse(dx, dy, lr))
-	elseif enemy == 2 then
-		add(enemies, addeligor(dx, dy, lr))
-	elseif enemy == 3 then
-		add(enemies, addarmor(dx, dy, lr))
-	end
+	add(enemies, rnd(horsefunc)(dx, dy, lr))
+
 end
 
 function addhorse(dx, dy, lr)
@@ -212,7 +316,7 @@ function addhorse(dx, dy, lr)
 		s=6
 		,alive=true
 		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(120)) or (dy>0 and 0 or 119))
+		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
 		,w=8
 		,h=8
 		,dx=(lr and dx or 0)
@@ -247,11 +351,9 @@ function horseupdate(self)
 	and ((collide(pole,self) and pole.active)
 	or (collide(cat,self) and cat.active)
 	or (collide(bomb,self) and bomb.active)) then
-		sfx(1)
 		-- leave blood pile
-		self.alive=false
-		self.t=64
-		score +=1
+		sfx(1)
+		kill_enemy(self)
 	end
 end
 
@@ -259,26 +361,12 @@ function horsedraw(self)
 	spr(self.s,self.x,self.y,1,1,(self.dx>0 and true))
 end
 
-function playercontrol(self)
-	if btn(0) then moveleft(self)
-	elseif btn(1) then moveright(self)
-	elseif btn(2) then moveup(self)
-	elseif btn(3) then movedown(self) end
-
-	if btn(4) then pole.active=true end
-	if btn(5) then cat.active=true end
-
-	-- check if the player is still onscreen
-	self.x=mid(0, self.x, screenwidth - self.w)
-	self.y=mid(0, self.y, screenheight - self.h)
-end
-
 function addeligor(dx, dy, lr)
 	return {
 		s=12
 		,alive=true
 		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(120)) or (dy>0 and 0 or 119))
+		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
 		,w=16
 		,h=16
 		,dx=(lr and dx or 0)
@@ -314,10 +402,7 @@ function eligorupdate(self)
 	or (collide(cat,self) and cat.active)
 	or (collide(bomb,self) and bomb.active)) then
 		sfx(5)
-		-- leave blood pile
-		self.alive=false
-		self.t=64
-		score +=1
+		kill_enemy(self)
 	end
 end
 
@@ -336,7 +421,7 @@ function addarmor(dx, dy, lr)
 		s=16
 		,alive=true
 		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(120)) or (dy>0 and 0 or 119))
+		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
 		,w=8
 		,h=8
 		,dx=(lr and dx or 0)
@@ -368,22 +453,66 @@ function armorupdate(self)
 	end
 
 	-- only damage with explosion. Interrupt attack
-	if self.alive
-	and ((collide(pole,self) and pole.active)
-	or (collide(cat,self) and cat.active))  then
-		sfx(6)
-		pole.active = false
-		cat.active = false
+	if self.alive then
+		if (collide(pole,self) and pole.active) then
+			sfx(6)
+			pole.active = false
+		end
+		if (collide(cat,self) and cat.active) then
+			cat.active = false
+			bomb.active = true
+			sfx(1)
+			kill_enemy(self)
+
+		end
+		if (collide(bomb,self) and bomb.active) then
+			sfx(1)
+			kill_enemy(self)
+		end
+	end
+end
+
+function kill_enemy(self)
+	self.alive=false
+	self.t=64
+	score +=(1*pts_m)
+end
+
+function playerupdate(self)
+	playercontrol(self)
+
+	if self.pts_up then
+		self.pts_up_t +=1
+		if self.pts_up_t > 150 then
+			self.pts_up = false
+			self.pts_up_t = 0
+			pts_m = 1
+		end
 	end
 
-	if self.alive
-	and (collide(bomb,self) and bomb.active) then
-		sfx(1)
-		-- leave blood pile
-		self.alive=false
-		self.t=64
-		score +=1
+	if self.enemy_up then
+		self.enemy_up_t +=1
+		if self.enemy_up_t > 150 then
+			self.enemy_up = false
+			self.enemy_up_t = 0
+			enemy_m = 1
+		end
 	end
+
+end
+
+function playercontrol(self)
+	if btn(0) then moveleft(self)
+	elseif btn(1) then moveright(self)
+	elseif btn(2) then moveup(self)
+	elseif btn(3) then movedown(self) end
+
+	if btn(4) then pole.active=true end
+	if btn(5) then cat.active=true end
+
+	-- check if the player is still onscreen
+	self.x=mid(0, self.x, screenwidth - self.w)
+	self.y=mid(8, self.y, screenheight - self.h)
 end
 
 function playerdraw(self)
@@ -456,8 +585,6 @@ function usepole(self,pl)
 end
 
 function poledraw(self)
-	--reset bomb pattern
-	fillp(0b0000000000000000)
 	rectfill(self.x, self.y, self.x+self.w, self.y+self.h, 4)
 end
 
@@ -466,7 +593,7 @@ function usecat(self,pl)
 	self.flipy=false
 
 	-- explode and despawn
-	if self.t>48 then
+	if self.t>30 then
 		self.dx=0
 		self.dy=0
 		self.t=0
@@ -493,24 +620,24 @@ function usecat(self,pl)
 	local bag_s=10
 	if pl.dir=="left" or pl.dir=="right" then
 		self.y = pl.y+1
+		self.dx=1.5
 		if pl.dir=="left" then
 			self.x = pl.x - self.w
 			self.flipx=true
-			self.dx=-1
+			self.dx*=-1
 		else
 			self.x = pl.x + self.w
-			self.dx=1
 		end
 	else
 		bag_s=11
 		self.x = pl.x+1
+		self.dy=1.5
 		if pl.dir=="up" then
 			self.y = pl.y - self.h
 			self.flipy=true
-			self.dy=-1
+			self.dy*=-1
 		else
 			self.y = pl.y + self.h
-			self.dy=1
 		end
 	end
 
@@ -554,6 +681,8 @@ function bombdraw(self)
 		c=8
 	end
 	circfill(self.x+4,self.y+4,self.r,c)
+	-- reset so pattern doesnt affect other rect and circ elts
+	fillp(0000000000000000.1)
 end
 
 function hcenter(s)
@@ -591,6 +720,13 @@ __gfx__
 0066660b0066660b0000000000000000000000000000000000000000000000000000000000000000000000000000000000005500005500000555000000005500
 00500500050000500000000000000000000000000000000000000000000000000000000000000000000000000000000000007700007700007750000000007700
 00b00b00b00000b00000000000000000000000000000000000000000000000000000000000000000000000000000000000007700007700007700000000007700
+01111110022222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+11111771272272220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+11111171277277220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+17171771277777720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+11711711277277220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+17171771272272220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01111110022222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -632,23 +768,16 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000003440000000000006677667766776677666600776677660066776677667766776677667766660000000000000000000000000000000000
-00000000005666000044334000000000006677667766776677666600776677660066776677667766776677667766660000000000000000000000000000000000
-00b000b0056676600034443066666666006677667766776677666600776677666666776677667766776677667766666600000000000000000000000000000000
-00bb0b00056777600044443066666666006677667766776677666600776677666666776677667766776677667766666600000000000000000000000000000000
-000bb000056676600034443066776677006666776677667766776600666666666677667766666677667766666677667700000000000000000000000000000000
-00444400056676600034444066776677006666776677667766776600666666666677667766666677667766666677667700000000000000000000000000000000
-04444440004444400043334066776677006666776677667766776600000000006677667700666677667766006677667700000000000000000000000000000000
-00000000004440400004440066776677006666776677667766776600000000006677667700666677667766006677667700000000000000000000000000000000
+00000000000000000003440000000000006677777777777777776600777777770066777777777777777777777777660000000000000000000000000000000000
+00000000005666000044334000000000006677777777777777776600777777770066777777777777777777777777660000000000000000000000000000000000
+00b000b0056676600034443066666666006677777777777777776600777777776666777777777777777777777777666600000000000000000000000000000000
+00bb0b00056777600044443066666666006677777777777777776600777777776666777777777777777777777777666600000000000000000000000000000000
+000bb000056676600034443077777777006677777777777777776600666666667777777766667777777766667777777700000000000000000000000000000000
+00444400056676600034444077777777006677777777777777776600666666667777777766667777777766667777777700000000000000000000000000000000
+04444440004444400043334077777777006677777777777777776600000000007777777700667777777766007777777700000000000000000000000000000000
+00000000004440400004440077777777006677777777777777776600000000007777777700667777777766007777777700000000000000000000000000000000
 __map__
-0000000000848586000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000848586000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0081810000848586000081818181000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0080800000848586000082008280000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -672,3 +801,5 @@ __sfx__
 000400001f6501a6501765015650136501265011650106500e6500e6500e6500e6500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000400000535007350093500b3500d3500f350113501235012350123500f3500f3500f350103500e3500b35009350063500335000350085001d0000c0000c0000c0000e0001000010000100000d000110000f000
 000100000000039350393503935039350393503935039350000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00040000221502415026150281501300014000281502a1502b1502c150230002d1502e15030150321500000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500000875008750087500875008750097500a7500b7500c7500e7501075014750187501d750000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
