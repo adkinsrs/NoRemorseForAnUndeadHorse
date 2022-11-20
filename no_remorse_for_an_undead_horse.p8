@@ -15,6 +15,7 @@ function _init()
 	timer=1800
 	enemy_m=1
 	pts_m=1
+	last=time()
 
 	player={
 		s=1
@@ -102,6 +103,10 @@ end
 
 -- update fxns
 function titleupdate()
+	--prevent user from clicking through too fast
+	if (time() - last) < 20 then
+		return
+	end
 	if btnp(4) then
 		scene=1
 	elseif btnp(5) then
@@ -152,6 +157,7 @@ function gameupdate()
 		hiscore=max(hiscore,score)
 		scene=0
 		timer=1800
+		last=time()
 	end
 end
 
