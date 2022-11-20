@@ -234,16 +234,6 @@ function gamedraw()
 	cls(3)
 	map(0,1,0,8,16,15)
 
-	rectfill(0,0,screenwidth,8,0)
-	print("score " .. score, 5, 1, 7)
-	print("timer ".. ceil(timer/30), 90, 1, 7)
-	if player.pts_up then
-		spr(32,64,0)
-	end
-	if player.enemy_up then
-		spr(33,72,0)
-	end
-
 	player:draw()
 	if pole.active then pole:draw() end
 	if cat.active then cat:draw() end
@@ -255,6 +245,17 @@ function gamedraw()
 
 	for e in all(enemies) do
 		e:draw()
+	end
+
+	-- Score, etc
+	rectfill(0,0,screenwidth,8,0)
+	print("score " .. score, 5, 1, 7)
+	print("timer ".. ceil(timer/30), 90, 1, 7)
+	if player.pts_up then
+		spr(32,64,0)
+	end
+	if player.enemy_up then
+		spr(33,72,0)
 	end
 end
 
