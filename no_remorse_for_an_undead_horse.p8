@@ -7,6 +7,8 @@ __lua__
 -- game loop
 function _init()
 	cls()
+	played_once=false
+	music_playing=false
 	scene=0
 	score=0
 	hiscore=0
@@ -104,10 +106,11 @@ end
 -- update fxns
 function titleupdate()
 	--prevent user from clicking through too fast
-	if (time() - last) < 20 then
+	if played_once and (time() - last) < 1 then
 		return
 	end
 	if btnp(4) then
+		sfx(-1)
 		scene=1
 	elseif btnp(5) then
 		scene=2
@@ -130,6 +133,13 @@ function enemyhelpupdate()
 end
 
 function gameupdate()
+	-- track is about 30 secs long
+	if not music_playing then
+		music_playing = true
+		music(0)
+	end
+	if timer==900 then music_playing=false end
+
 	timer-=1
 	--colon implies "self" passed as arg
 	player:upd()
@@ -154,10 +164,12 @@ function gameupdate()
 	end
 
 	if timer==0 then
+		music(-1)	--stop music
 		hiscore=max(hiscore,score)
 		scene=0
 		timer=1800
 		last=time()
+		played_once=true
 	end
 end
 
@@ -263,11 +275,11 @@ end
 function spawn_powerup()
 	local types = {"pts_up", "enemy_up"}
 	local type=rnd(types)
-	local sp=type=="pts_up" and 32 or 33
+	local sp = type=="pts_up" and 32 or 33
 	add(pwrups, {
 		t=0
 		,type=type
-		,sp=sp
+		,s=sp
 		,x=flr(rnd(120))
 		,y=flr(rnd(112))+8
 		,w=8
@@ -278,7 +290,7 @@ function spawn_powerup()
 end
 
 function pwrupupdate(self)
-	if self.t==150 then
+	if self.t==90 then
 		del(pwrups,self)
 		return
 	end
@@ -299,39 +311,22 @@ function pwrupupdate(self)
 end
 
 function pwrupdraw(self)
-	spr(self.sp,self.x, self.y)
+	spr(self.s,self.x, self.y)
 end
 
 function spawn_enemy(timer)
-	local lr=true
-	local dx=-1
-	local dy=-1
-	if rnd(1)<0.5 then dx=1 end
-	if rnd(1)<0.5 then dy=1 end
-	if rnd(1)<0.5 then lr=false end
-
 	local horsefunc = {addhorse} --horse
 	if timer<51 then add(horsefunc, addeligor) end	--eligor
 	if timer<41 then add(horsefunc, addarmor) end	--armor
-
-	add(enemies, rnd(horsefunc)(dx, dy, lr))
-
+	e=init_enemy()
+	add(enemies, rnd(horsefunc)(e))
 end
 
-function addhorse(dx, dy, lr)
-	return {
-		s=6
-		,alive=true
-		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
-		,w=8
-		,h=8
-		,dx=(lr and dx or 0)
-		,dy=(lr and 0 or dy)
-		,t=0
-		,upd=horseupdate
-		,draw=horsedraw
-	}
+function addhorse(e)
+	e.s=6
+	e.upd=horseupdate
+	e.draw=horsedraw
+	return e
 end
 
 function horseupdate(self)
@@ -368,20 +363,13 @@ function horsedraw(self)
 	spr(self.s,self.x,self.y,1,1,(self.dx>0 and true))
 end
 
-function addeligor(dx, dy, lr)
-	return {
-		s=12
-		,alive=true
-		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
-		,w=16
-		,h=16
-		,dx=(lr and dx or 0)
-		,dy=(lr and 0 or dy)
-		,t=0
-		,upd=eligorupdate
-		,draw=eligordraw
-	}
+function addeligor(e)
+	e.s=12
+	e.w*=2
+	e.h*=2
+	e.upd=eligorupdate
+	e.draw=eligordraw
+	return e
 end
 
 function eligorupdate(self)
@@ -423,20 +411,11 @@ function eligordraw(self)
 	spr(self.s,self.x,self.y,w,h,(self.dx>0 and true))
 end
 
-function addarmor(dx, dy, lr)
-	return {
-		s=16
-		,alive=true
-		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
-		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
-		,w=8
-		,h=8
-		,dx=(lr and dx or 0)
-		,dy=(lr and 0 or dy)
-		,t=0
-		,upd=armorupdate
-		,draw=horsedraw --same as horse
-	}
+function addarmor(e)
+	e.s=16
+	e.upd=armorupdate
+	e.draw=horsedraw	--same as horse
+	return e
 end
 
 function armorupdate(self)
@@ -466,8 +445,8 @@ function armorupdate(self)
 			pole.active = false
 		end
 		if (collide(cat,self) and cat.active) then
-			cat.active = false
-			bomb.active = true
+			--force explosion
+			cat.t=31
 			sfx(1)
 			kill_enemy(self)
 
@@ -477,6 +456,25 @@ function armorupdate(self)
 			kill_enemy(self)
 		end
 	end
+end
+
+function init_enemy()
+	local lr=true
+	local dx=-1
+	local dy=-1
+	if rnd(1)<0.5 then dx=1 end
+	if rnd(1)<0.5 then dy=1 end
+	if rnd(1)<0.5 then lr=false end
+	return {
+		alive=true
+		,x=(lr and (dx>0 and 0 or 119) or flr(rnd(120)))
+		,y=(lr and flr(rnd(112)) or (dy>0 and 0 or 111))+8
+		,w=8
+		,h=8
+		,dx=(lr and dx or 0)
+		,dy=(lr and 0 or dy)
+		,t=0
+	}
 end
 
 function kill_enemy(self)
@@ -667,8 +665,6 @@ function explode(self)
 		self.active=false
 		self.t=0
 		self.r=1
-		self.x=cat.x
-		self.y=cat.y
 		self.w=8
 		self.h=8
 	end
@@ -810,3 +806,25 @@ __sfx__
 000100000000039350393503935039350393503935039350000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00040000221502415026150281501300014000281502a1502b1502c150230002d1502e15030150321500000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000500000875008750087500875008750097500a7500b7500c7500e7501075014750187501d750000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+011000000c420000000000000000124200000012420000000c420000000000000000124200000000000000000c420000000000000000124200000012420000000c42000000000000000012420000000000000000
+011000000c023000000000000000246250000000000000000c023000000000000000246250000000000000000c023000000000000000246250000000000000000c02300000000000000024625000000000000000
+011000001e1211e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e12200100001001e1001e1001e1201e12020120201202112221122211222110020120201201f1201f120
+011000002412124122241222412224122241222412224122241222412224122241222412224122241222412200100001000010024100241202412022120221202112221122211222010022120221202112021120
+011000002212122122221222212222122221222212222122221222212222122221222212222122221222212200100001001e1001e100221202212021120211202012220122201222110020120201201f1201f120
+011000001e1211e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e1221e12200000000000000000000000000000000000000000000000000000000000000000000000000000000
+__music__
+00 10114344
+00 10111244
+00 10111244
+00 10111344
+00 10111344
+00 10111444
+00 10111544
+
