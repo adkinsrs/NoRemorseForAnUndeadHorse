@@ -550,8 +550,8 @@ function addcentaur(e)
 	e.dy=0
 	e.dx=-1
 	if rnd(1)<0.5 then e.dx=1 end
-	e.x = (e.dx>0 and 0 or 119)+8
-	e.y = flr(rnd(112))
+	e.x = (e.dx>0 and 0 or 119)
+	e.y = flr(rnd(112))+8
 	e.upd=centaurupdate
 	e.draw=lghorsedraw
 	return e
