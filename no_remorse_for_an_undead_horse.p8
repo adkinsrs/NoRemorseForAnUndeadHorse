@@ -20,63 +20,6 @@ function _init()
 	speed_m=1
 	last=time()
 
-	player={
-		s=1
-		,flip=false
-		,dir="down"
-		,x=screenwidth/2
-		,y=screenheight/2
-		,w=8
-		,h=8
-		,pts_up=false
-		,pts_up_t=0
-		,enemy_up=false
-		,enemy_up_t=0
-		,speed_up=false
-		,speed_up_t=0
-		,upd=playerupdate
-		,draw=playerdraw
-	}
-
-	pole={
-		active=false
-		,t=0
-		,x=player.x
-		,y=player.y
-		,w=0
-		,h=0
-		,upd=usepole
-		,draw=poledraw
-	}
-
-	cat={
-		s=9
-		,active=false
-		,flipx=false
-		,flipy=false
-		,t=0
-		,x=player.x
-		,y=player.y
-		,w=8
-		,h=8
-		,dx=0
-		,dy=0
-		,upd=usecat
-		,draw=catdraw
-	}
-	bomb={
-		active=false
-		,t=0
-		,r=1
-		,x=cat.x
-		,y=cat.y
-		,upd=explode
-		,draw=bombdraw
-	}
-
-	pwrups={}
-	enemies={}
-
 	sfx(2)
 end
 
@@ -104,6 +47,76 @@ function _draw()
 	end
 end
 
+function init_game()
+
+	music(-1)	--stop music
+	hiscore=max(hiscore,score)
+	score=0
+	timer=1800
+	last=time()
+	played_once=true
+
+	player={
+		s=1
+		,flip=false
+		,dir="down"
+		,x=screenwidth/2
+		,y=screenheight/2
+		,w=8
+		,h=8
+		,pts_up=false
+		,pts_up_t=0
+		,enemy_up=false
+		,enemy_up_t=0
+		,speed_up=false
+		,speed_up_t=0
+		,upd=playerupdate
+		,draw=playerdraw
+	}
+
+	pole={
+		active=false
+		,t=0
+		,end_t=15
+		,x=player.x
+		,y=player.y
+		,w=0
+		,h=0
+		,upd=usepole
+		,draw=poledraw
+	}
+
+	cat={
+		s=9
+		,active=false
+		,flipx=false
+		,flipy=false
+		,t=0
+		,end_t=30
+		,x=player.x
+		,y=player.y
+		,w=8
+		,h=8
+		,dx=0
+		,dy=0
+		,upd=usecat
+		,draw=catdraw
+	}
+	bomb={
+		active=false
+		,t=0
+		,end_t=20
+		,r=1
+		,x=cat.x
+		,y=cat.y
+		,upd=explode
+		,draw=bombdraw
+	}
+
+	pwrups={}
+	enemies={}
+end
+
 -- update fxns
 function titleupdate()
 	--prevent user from clicking through too fast
@@ -112,6 +125,7 @@ function titleupdate()
 	end
 	if btnp(4) then
 		sfx(-1)
+		init_game()
 		scene=1
 	elseif btnp(5) then
 		scene=2
@@ -165,13 +179,8 @@ function gameupdate()
 	end
 
 	if timer==0 then
-		music(-1)	--stop music
-		hiscore=max(hiscore,score)
+		init_game()
 		scene=0
-		score=0
-		timer=1800
-		last=time()
-		played_once=true
 	end
 end
 
@@ -180,8 +189,8 @@ function titledraw()
 	cls(0)
 	local titletxt="no remorse"
 	local titletxt2="for an undead horse!"
-	local starttxt="press z to start"
-	local helptxt="press x for instructions"
+	local starttxt="press 🅾️/z to start"
+	local helptxt="press ❎/x for instructions"
 	local scoretxt="high score: "..hiscore
 
 	print(titletxt, hcenter(titletxt), screenheight/16, 11)
@@ -197,19 +206,19 @@ function helpdraw()
 	cls(0)
 	local help="beat as many (un)dead horses"
 	local help2="as you can in a minute."
-	local helpz="z"
+	local helpz="🅾️/z"
 	local helpz2="touch it with"
 	local helpz3="a 10-foot pole"
-	local helpx="x"
+	local helpx="❎/x"
 	local helpx2="let the cat"
 	local helpx3="out of the bag"
-	local helpdir="wasd"
+	local helpdir="wasd/⬆️⬅️⬇️➡️"
 	local helpdir2="move player"
 	local helpscorem="points x2"
 	local helpenemym="spawn x2"
 	local helpspeedm="speed x2"
-	local returntext="z - back"
-	local moretext="x - enemy info"
+	local returntext="🅾️/z back"
+	local moretext="❎/x enemy info"
 
 	print(help, hcenter(help), screenheight/16, 7)
 	print(help2, hcenter(help2), (screenheight/16)+8, 7)
@@ -226,7 +235,7 @@ function helpdraw()
 	spr(9,16, (7*screenheight/16)+5)
 	print(helpx3, 64, (7*screenheight/16)+8,7)
 
-	print(helpdir, 32, (5*screenheight/8),7)
+	print(helpdir, 8, (5*screenheight/8),7)
 	print(helpdir2, 64, (5*screenheight/8),7)
 
 	spr(32,8,(3*screenheight/4))
@@ -237,7 +246,7 @@ function helpdraw()
 	print(helpspeedm, 20, (3*screenheight/4)+8,7)
 
 	print(returntext, 5, screenheight-8,9)
-	print(moretext, 70, screenheight-8,9)
+	print(moretext, 68, screenheight-8,9)
 end
 
 function enemyhelpdraw()
@@ -248,7 +257,7 @@ function enemyhelpdraw()
 	local enemy3="armored horse"
 	local enemy4="centaur"
 	local note="note: you are immortal"
-	local returntext="z - back"
+	local returntext="🅾️/z back"
 
 	print(title, hcenter(title), screenheight/16, 11)
 	spr(6,8, screenheight/4)
@@ -310,6 +319,7 @@ function spawn_powerup()
 	end
 	add(pwrups, {
 		t=0
+		,end_t=120
 		,type=type
 		,s=sp
 		,x=flr(rnd(120))
@@ -322,7 +332,7 @@ function spawn_powerup()
 end
 
 function pwrupupdate(self)
-	if self.t==120 then
+	if self.t==self.end_t then
 		del(pwrups,self)
 		return
 	end
@@ -380,6 +390,7 @@ function init_enemy()
 		,dx=(lr and dx or 0)
 		,dy=(lr and 0 or dy)
 		,t=0
+		,end_t=128
 	}
 end
 
@@ -423,7 +434,7 @@ function horseupdate(self)
 		self.dy = 0
 	end
 
-	if self.t==128 then
+	if self.t==self.end_t then
 		del(enemies,self)
 		return
 	end
@@ -460,7 +471,7 @@ function eligorupdate(self)
 		self.dy = 0
 	end
 
-	if self.t==128 then
+	if self.t==self.end_t then
 		del(enemies,self)
 		return
 	end
@@ -494,7 +505,7 @@ function armorupdate(self)
 		self.dy = 0
 	end
 
-	if self.t==128 then
+	if self.t==self.end_t then
 		del(enemies,self)
 		return
 	end
@@ -502,12 +513,24 @@ function armorupdate(self)
 	-- only damage with explosion. Interrupt attack
 	if self.alive then
 		if (collide(pole,self) and pole.active) then
+			pole.t=pole.end_t
 			sfx(6)
-			pole.active = false
+			-- pole length will only go up to enemy
+			if player.dir=="left" then
+				pole.x=self.x+self.w
+				pole.w=player.x-pole.x
+			elseif player.dir=="right" then
+				pole.w=self.x-player.x-8
+			elseif player.dir=="up" then
+				pole.y=self.y+self.h
+				pole.h=player.y-pole.y
+			else
+				pole.h=self.y-player.y-8
+			end
 		end
 		if (collide(cat,self) and cat.active) then
 			--force explosion
-			cat.t=31
+			cat.t=cat.end_t
 			sfx(1)
 			kill_enemy(self)
 
@@ -545,7 +568,7 @@ function centaurupdate(self)
 		self.dx = 0
 	end
 
-	if self.t==128 then
+	if self.t==self.end_t then
 		del(enemies,self)
 		return
 	end
@@ -561,8 +584,14 @@ function centaurupdate(self)
 			--only block from L/R direction
 			if (player.dir=="left" and self.dx > 0)
 			or (player.dir=="right" and self.dx < 0) then
+				pole.t=pole.end_t
 				sfx(6)
-				pole.active = false
+				if player.dir=="left" then
+					pole.x=self.x+self.w
+					pole.w=self.x-pole.x
+				else
+					pole.w=self.x-player.x-8
+				end
 			else
 				sfx(1)
 				kill_enemy(self)
@@ -571,7 +600,7 @@ function centaurupdate(self)
 		end
 		if (collide(cat,self) and cat.active) then
 			--force explosion
-			cat.t=31
+			cat.t=cat.end_t
 			sfx(1)
 			kill_enemy(self)
 
@@ -664,6 +693,17 @@ function movedown(self)
 end
 
 function usepole(self,pl)
+	-- Stop using pole
+	if self.t==self.end_t then
+		self.t=0
+		self.active=false
+		self.x=0
+		self.y=0
+		self.w=0
+		self.h=0
+		return
+	end
+
 	if pl.dir=="left" or pl.dir=="right" then
 		self.w = 30
 		self.h = 1
@@ -686,16 +726,6 @@ function usepole(self,pl)
 
 	if self.t==0 then sfx(0) end
 	self.t+=1
-
-	-- Stop using pole
-	if self.t==15 then
-		self.t=0
-		self.active=false
-		self.x=0
-		self.y=0
-		self.w=0
-		self.h=0
-	end
 end
 
 function poledraw(self)
@@ -703,11 +733,12 @@ function poledraw(self)
 end
 
 function usecat(self,pl)
+	-- catbomb starts as bag which releases catbomb which explodes
 	self.flipx=false
 	self.flipy=false
 
 	-- explode and despawn
-	if self.t>30 then
+	if self.t==self.end_t then
 		self.dx=0
 		self.dy=0
 		self.t=0
@@ -768,7 +799,7 @@ end
 function explode(self)
 	self.r=min(16,self.r+1)
 	self.t+=1
-	if self.t==20 then
+	if self.t==self.end_t then
 		self.active=false
 		self.t=0
 		self.r=1
